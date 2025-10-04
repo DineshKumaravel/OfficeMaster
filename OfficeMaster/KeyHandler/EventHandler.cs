@@ -92,6 +92,37 @@ namespace OfficeHelper
 			return true;	
 		}
 
+		public static void FetchAggregatedData()
+		{
+			var startMonthDate = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+
+            var endMonthDate = startMonthDate.AddMonths(1).AddDays(-1);
+
+			var monthlyData = DbHelper.timeAggregator.Where(x => (DateTime.ParseExact(x.date, "dd/MM/yyyy", null) >= startMonthDate && DateTime.ParseExact(x.date, "dd/MM/yyyy", null) <= endMonthDate)).ToList();
+
+			if(monthlyData != null)
+			{
+				CalculateAllAggregatedHours(monthlyData);
+			}
+		}
+
+		public static void CalculateAllAggregatedHours(List<TimeAggregator> monthlyData)
+		{
+			var officeHours = TimeSpan.Zero;
+			var workHours = TimeSpan.Zero;
+			var breakHours = TimeSpan.Zero;
+			var compensationHours = TimeSpan.Zero;
+
+			foreach (var dailyData in monthlyData) 
+			{
+				officeHours += TimeSpan.ParseExact(dailyData.officeHours, "HH:mm", null);
+				workHours += TimeSpan.ParseExact(dailyData.workHours, "HH:mm", null); 
+				breakHours += TimeSpan.ParseExact(dailyData.breakHours, "HH:mm", null);
+				compensationHours += TimeSpan.ParseExact(dailyData.compensationHours, "HH:mm", null);
+            }
+			// Have to show it using custompopup lets see
+		}
+
 		public static void ClearDB()
 		{
 			DbHelper.timeTracker.ExecuteDelete();

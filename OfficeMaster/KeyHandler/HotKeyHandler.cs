@@ -10,14 +10,6 @@ namespace OfficeHelper
     public class HotKeyHandler
     {
 
-        public enum OperationTypes
-        {
-            Events,
-
-        }
-
-
-
         private static readonly DbHelper dbHelper = new DbHelper();
         private static readonly CustomPopup popup = new CustomPopup();
 
@@ -40,12 +32,16 @@ namespace OfficeHelper
         }
 
         private static void CtrlAltW_Pressed(object sender, HotkeyEventArgs e) // work start
-        {
-            if (popup.ShowDialog() == DialogResult.OK)
+        { 
+            if (popup.ShowDialog() == DialogResult.OK && (popup.SelectedOption >= 0 && popup.SelectedOption <= 3))
             {
                 EventHandler.PushEventData(eventList[popup.SelectedOption], (Events)Enum.ToObject(typeof(Events), popup.SelectedOption));
             }
-            e.Handled = true;
+            else
+            {
+                EventHandler.FetchAggregatedData(); // will fetch current month data (hard coded)
+            }
+                e.Handled = true;
         }
 
         private static void CtrlShiftW_Pressed(object sender, HotkeyEventArgs e)

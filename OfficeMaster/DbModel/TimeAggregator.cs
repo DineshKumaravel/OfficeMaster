@@ -9,19 +9,20 @@ namespace OfficeHelper
 
 		public enum Events
 		{
-			WorkStart,
+			WorkStart = 0,
 			WorkEnd,
 			BreakStart,
-			BreakEnd 
+			BreakEnd,
+			CalculatedHours
 		}
 
-		public enum MontlyAggregate
-		{
-			OfficeHours,
-			WorkHours,
-			BreakHours,
-			CompensateHours
-		}
+		//public enum MontlyAggregate
+		//{
+		//	OfficeHours = 4,
+		//	WorkHours,
+		//	BreakHours,
+		//	CompensateHours
+		//}
 
         [Key]             
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
