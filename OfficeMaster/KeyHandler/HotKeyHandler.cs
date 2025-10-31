@@ -37,11 +37,7 @@ namespace OfficeHelper
             {
                 EventHandler.PushEventData(eventList[popup.SelectedOption], (Events)Enum.ToObject(typeof(Events), popup.SelectedOption));
             }
-            else
-            {
-                EventHandler.FetchAggregatedData(); // will fetch current month data (hard coded)
-            }
-                e.Handled = true;
+            e.Handled = true;
         }
 
         private static void CtrlShiftW_Pressed(object sender, HotkeyEventArgs e)
