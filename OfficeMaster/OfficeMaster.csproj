@@ -4,7 +4,13 @@
 		<OutputType>WinExe</OutputType>
 		<TargetFramework>net8.0-windows</TargetFramework>
 		<UseWindowsForms>true</UseWindowsForms>
+		<PackageIcon></PackageIcon>
+		<ApplicationIcon>Resources\favicon.ico</ApplicationIcon>
 	</PropertyGroup>
+
+	<ItemGroup>
+	  <Content Include="Resources\favicon.ico" />
+	</ItemGroup>
 
 	<ItemGroup>
 		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.9" />
@@ -13,6 +19,17 @@
 		<PackageReference Include="NHotkey.WindowsForms" Version="3.0.0" />
 		<PackageReference Include="System.Data.SQLite.Core" Version="1.0.119" />
 		<PackageReference Include="System.Linq" Version="4.3.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <None Update="Resources\appIcon.ico">
+	    <Pack>True</Pack>
+	    <PackagePath>\</PackagePath>
+	  </None>
+	  <None Update="Resources\favicon.ico">
+	    <Pack>True</Pack>
+	    <PackagePath>\</PackagePath>
+	  </None>
 	</ItemGroup>
 
 </Project>
