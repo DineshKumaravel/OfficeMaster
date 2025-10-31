@@ -20,21 +20,40 @@ namespace OfficeHelper
 			return dbStatus;
         }
 
-        public static int GetMaxSessionId(string todayDate, int eventId)
+        public static int GetMaxSessionId(string todayDate, int eventId) // overrided 1
+		{
+			try
 		{
 			var timeTracker = DbHelper.timeTracker.Where(x => x.date == todayDate).Where(y => y.eventId == eventId).ToList();
 
 			return (timeTracker.Any()) ? timeTracker.Max(x => x.sessionId) + 1 : 1;
 
 		}
+			catch (Exception e)
+			{
+				CustomPopup.ShowResult($"Exception Occured at GetMaxSessionId1 : {e.Message}");
+				return -1;
+			}
 
-		public static int GetMaxSessionId(List<TimeTracker> timeTrackers)
+		}
+
+		public static int GetMaxSessionId(List<TimeTracker> timeTrackers) // overrided 2
+		{
+			try
 		{
 			return timeTrackers.Max(x => x.sessionId);
+		}
+			catch (Exception e)
+			{
+                CustomPopup.ShowResult($"Exception Occured at GetMaxSessionId2 : {e.Message}");
+                return -1; 
+			}	
 		}
 
 		public static void PushAggregatedData(string todayDate)
 		{
+			try
+			{
 			var timeTracker = DbHelper.timeTracker.Where(x => x.date == todayDate).ToList();
 
 			var officeHours = CalculatedWorkHours(timeTracker, Events.WorkStart , Events.WorkEnd);
@@ -59,11 +78,19 @@ namespace OfficeHelper
 				oldAggregatorData.compensationHours = compensationHours;
 
 				DbHelper.SaveChanges();
+				}
+
+			}
+			catch (Exception e)
+            {
+                CustomPopup.ShowResult($"Exception Occured at PushAggregatedData : {e.Message}");
 			}
 
 		}
 
 		public static TimeSpan CalculatedWorkHours(List<TimeTracker> timeTracker, Events sEvent, Events eEvent)
+		{
+			try
 		{
 			int maxSessionId = GetMaxSessionId(timeTracker);
 
@@ -79,9 +106,19 @@ namespace OfficeHelper
 			}
 			return totalTime;
 
+			}
+			catch(Exception e) 
+			{
+                CustomPopup.ShowResult($"Exception Occured at CalculatedWorkHours : {e.Message}");
+				return TimeSpan.MaxValue;
+
+            }
+
 		}
 
 		public static bool PushEventData(string eve, Events type)
+		{
+			try
 		{
 			DbHelper.Add(TimeTracker.Transform(eve, (int)type));
             DbHelper.SaveChanges();
@@ -91,8 +128,17 @@ namespace OfficeHelper
 			}
 			return true;	
 		}
+			catch (Exception e) 
+			{
+                CustomPopup.ShowResult($"Exception Occured at PushEventData : {e.Message}");
+				return false;
 
-		public static void FetchAggregatedData()
+            }
+        }
+
+		public static string FetchAggregatedData()
+		{
+			try
 		{
 			var startMonthDate = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
 
@@ -104,9 +150,20 @@ namespace OfficeHelper
 			{
 				CalculateAllAggregatedHours(monthlyData);
 			}
-		}
+				return "No Data in Aggregated Record to show result";
 
-		public static void CalculateAllAggregatedHours(List<TimeAggregator> monthlyData)
+			}
+			catch(Exception e)
+			{
+                CustomPopup.ShowResult($"Exception Occured at FetchAggregatedData : {e.Message}");
+				return null;
+
+            }
+        }
+
+		public static string CalculateAllAggregatedHours(List<TimeAggregator> monthlyData)
+		{
+			try
 		{
 			var officeHours = TimeSpan.Zero;
 			var workHours = TimeSpan.Zero;
@@ -115,24 +172,52 @@ namespace OfficeHelper
 
 			foreach (var dailyData in monthlyData) 
 			{
-				officeHours += TimeSpan.ParseExact(dailyData.officeHours, "HH:mm", null);
-				workHours += TimeSpan.ParseExact(dailyData.workHours, "HH:mm", null); 
-				breakHours += TimeSpan.ParseExact(dailyData.breakHours, "HH:mm", null);
-				compensationHours += TimeSpan.ParseExact(dailyData.compensationHours, "HH:mm", null);
+					officeHours += TimeSpan.ParseExact(dailyData.officeHours, @"hh\:mm", null);
+					workHours += TimeSpan.ParseExact(dailyData.workHours, @"hh\:mm", null); 
+					breakHours += TimeSpan.ParseExact(dailyData.breakHours, @"hh\:mm", null);
+					compensationHours += TimeSpan.Parse(dailyData.compensationHours); // Possiblity of having negative values
+				}
+				return $"Total Days Available : {monthlyData.Count}" +
+					$"\nTotal Office Hours : {officeHours}" +
+					$"\nTotal Work Hours : {workHours}" +
+					$"\nTotal Break Hours : {breakHours}" +
+					$"\nCompensate Hours : {compensationHours}";
+
+			}
+			catch (Exception e)
+			{
+                CustomPopup.ShowResult($"Exception Occured at CalculateAllAggregatedHours : {e.Message}");
+				return null;
             }
-			// Have to show it using custompopup lets see
 		}
 
 		public static void ClearDB()
 		{
+			try
+		{
 			DbHelper.timeTracker.ExecuteDelete();
+				DbHelper.timeAggregator.ExecuteDelete();
+			}
+			catch (Exception e) 
+			{
+                CustomPopup.ShowResult($"Exception Occured at ClearDb : {e.Message}");
+            }
 		}
 
         public static string NegativeTimeSpamHandler(TimeSpan ts)
         {
+			try
+        {
             string sign = ts < TimeSpan.Zero ? "-" : "+";
             ts = ts.Duration(); // get absolute value
             return $"{sign}{ts:hh\\:mm}";
+
+			}
+			catch (Exception e)
+			{
+                CustomPopup.ShowResult($"Exception Occured at NegativeTimeHandler : {e.Message}");
+				return null;
+            }
         }
 
     }
