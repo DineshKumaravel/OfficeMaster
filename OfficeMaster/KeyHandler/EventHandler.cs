@@ -76,8 +76,6 @@ namespace OfficeHelper
 					oldAggregatorData.breakHours = breakHours.ToString("hh\\:mm");
 					oldAggregatorData.workHours = workHours.ToString("hh\\:mm");
 					oldAggregatorData.compensationHours = compensationHours;
-
-					DbHelper.SaveChanges();
 				}
 
 			}
@@ -127,7 +125,8 @@ namespace OfficeHelper
 				if (type == Events.WorkEnd)
 				{
 					PushAggregatedData(DateTime.Now.ToString("dd/MM/yyyy"));
-				}
+                    DbHelper.SaveChanges();
+                }
 				return true;
 			}
 			catch (Exception e) 
