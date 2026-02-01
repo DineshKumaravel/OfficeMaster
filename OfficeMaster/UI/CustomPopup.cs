@@ -31,18 +31,21 @@ namespace OfficeHelper
             var button3 = new Button { Text = "Break Start", Left = 20, Top = 100, Width = 80 };
             var button4 = new Button { Text = "Break End", Left = 110, Top = 100, Width = 80 };
             var button5 = new Button { Text = "Monthly TotalHours", Left = 20, Top = 150, Width = 80 };
+            var button6 = new Button { Text = "Today Status", Left = 110, Top = 150, Width = 80 };
 
             button1.Click += (s, e) => { SelectedOption = (int)TimeAggregator.Events.WorkStart; this.DialogResult = DialogResult.OK; };
             button2.Click += (s, e) => { SelectedOption = (int)TimeAggregator.Events.WorkEnd; this.DialogResult = DialogResult.OK; };
             button3.Click += (s, e) => { SelectedOption = (int)TimeAggregator.Events.BreakStart; this.DialogResult = DialogResult.OK; };
             button4.Click += (s, e) => { SelectedOption = (int)TimeAggregator.Events.BreakEnd; this.DialogResult = DialogResult.OK; };
             button5.Click += (s, e) => { ShowResult(); };
+            button6.Click += (s, e) => { };
 
             this.Controls.Add(button1);
             this.Controls.Add(button2);
             this.Controls.Add(button3);
             this.Controls.Add(button4);
             this.Controls.Add(button5);
+            this.Controls.Add(button6);
             this.Controls.Add(resultBox);
 
         }
