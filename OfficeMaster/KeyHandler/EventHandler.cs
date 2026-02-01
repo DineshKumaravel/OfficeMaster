@@ -188,10 +188,10 @@ namespace OfficeHelper
 					compensationHours += TimeSpan.Parse(PositiveTimeSpanHandler(dailyData.compensationHours)); // Possiblity of having negative values
 				}
 				return $"Total Days Available : {monthlyData.Count}" +
-					$"\nTotal Office Hours : {officeHours}" +
-					$"\nTotal Work Hours : {workHours}" +
-					$"\nTotal Break Hours : {breakHours}" +
-					$"\nCompensate Hours : {compensationHours}";
+					$"\nTotal Office Hours : {TimeSpanOutputFormatter(officeHours)}" +
+					$"\nTotal Work Hours : {TimeSpanOutputFormatter(workHours)}" +
+					$"\nTotal Break Hours : {TimeSpanOutputFormatter(breakHours)}" +
+					$"\nCompensate Hours : {TimeSpanOutputFormatter(compensationHours)}";
 
 			}
 			catch (Exception e)
@@ -229,7 +229,10 @@ namespace OfficeHelper
 				return null;
             }
         }
-
+		private static string TimeSpanOutputFormatter(TimeSpan ts)
+		{
+			return $"{ts.Days} D : {ts.Hours} H : {ts.Minutes} M";
+		}
 		private static string PositiveTimeSpanHandler(string timespan)
 		{
 			timespan = timespan.Contains("+") ? timespan.Replace("+", "") : timespan;
