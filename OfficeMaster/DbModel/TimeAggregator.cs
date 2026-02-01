@@ -13,18 +13,17 @@ namespace OfficeHelper
 			WorkEnd,
 			BreakStart,
 			BreakEnd,
+			HalfDayEnd,
 			CalculatedHours
 		}
 
-		//public enum MontlyAggregate
-		//{
-		//	OfficeHours = 4,
-		//	WorkHours,
-		//	BreakHours,
-		//	CompensateHours
-		//}
+		public enum AggregateType
+		{
+			Month,
+			Day
+		}
 
-        [Key]             
+		[Key]             
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public virtual int id { get; set; }
 

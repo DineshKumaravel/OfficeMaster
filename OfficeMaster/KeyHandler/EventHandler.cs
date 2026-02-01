@@ -1,10 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
-using OfficeHelper;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Windows.Forms.Design;
 using static OfficeHelper.TimeAggregator;
 
 namespace OfficeHelper
@@ -31,7 +28,7 @@ namespace OfficeHelper
 			}
 			catch (Exception e)
 			{
-				CustomPopup.ShowResult($"Exception Occured at GetMaxSessionId1 : {e.Message}");
+				CustomPopup.ShowError($"Exception Occured at GetMaxSessionId1 : {e.Message}");
 				return -1;
 			}
 
@@ -45,24 +42,24 @@ namespace OfficeHelper
 			}
 			catch (Exception e)
 			{
-                CustomPopup.ShowResult($"Exception Occured at GetMaxSessionId2 : {e.Message}");
+                CustomPopup.ShowError($"Exception Occured at GetMaxSessionId2 : {e.Message}");
                 return -1; 
 			}	
 		}
 
-		private static void PushAggregatedData(string todayDate)
+		private static void PushAggregatedData(string todayDate, Events eventType)
 		{
 			try
 			{
 				var timeTracker = DbHelper.timeTracker.Where(x => x.date == todayDate).ToList();
 
-				var officeHours = CalculatedWorkHours(timeTracker, Events.WorkStart, Events.WorkEnd);
+				var officeHours = (eventType == Events.HalfDayEnd) ? CalculatedWorkHours(timeTracker, Events.WorkStart, Events.HalfDayEnd)  : CalculatedWorkHours(timeTracker, Events.WorkStart, Events.WorkEnd);
 
 				var breakHours = CalculatedWorkHours(timeTracker, Events.BreakStart, Events.BreakEnd);
 
 				var workHours = officeHours - breakHours;
 
-				var compensationHours = NegativeTimeSpamHandler(workHours - TimeSpan.Parse("09:00"));
+				var compensationHours = (eventType == Events.HalfDayEnd) ? NegativeTimeSpamHandler(workHours - TimeSpan.Parse("04:30")) : NegativeTimeSpamHandler(workHours - TimeSpan.Parse("09:00"));
 
 				var oldAggregatorData = DbHelper.timeAggregator.FirstOrDefault(x => x.date == todayDate);
 
@@ -81,7 +78,7 @@ namespace OfficeHelper
 			}
 			catch (Exception e)
             {
-                CustomPopup.ShowResult($"Exception Occured at PushAggregatedData : {e.Message}");
+                CustomPopup.ShowError($"Exception Occured at PushAggregatedData : {e.Message}");
             }
 
         }
@@ -109,9 +106,8 @@ namespace OfficeHelper
 			}
 			catch(Exception e) 
 			{
-                CustomPopup.ShowResult($"Exception Occured at CalculatedWorkHours : {e.Message}");
+                CustomPopup.ShowError($"Exception Occured at CalculatedWorkHours : {e.Message}");
 				return TimeSpan.MaxValue;
-
             }
 
         }
@@ -122,28 +118,38 @@ namespace OfficeHelper
 			{
 				DbHelper.Add(TimeTracker.Transform(eve, (int)type));
 				DbHelper.SaveChanges();
-				if (type == Events.WorkEnd)
+				if (type == Events.WorkEnd || type == Events.HalfDayEnd)
 				{
-					PushAggregatedData(DateTime.Now.ToString("dd/MM/yyyy"));
+					PushAggregatedData(DateTime.Now.ToString("dd/MM/yyyy") , type);
                     DbHelper.SaveChanges();
                 }
 				return true;
 			}
 			catch (Exception e) 
 			{
-                CustomPopup.ShowResult($"Exception Occured at PushEventData : {e.Message}");
+                CustomPopup.ShowError($"Exception Occured at PushEventData : {e.Message}");
 				return false;
 
             }
         }
 
-		public static string FetchAggregatedData()
+		public static string FetchAggregatedData(AggregateType aggregateType)
 		{
 			try
 			{
-				var startMonthDate = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+				DateTime startDate, endDate;
+				if(aggregateType == AggregateType.Month)
+				{
+                    startDate = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
 
-				var endMonthDate = startMonthDate.AddMonths(1).AddDays(-1);
+                    endDate = startDate.AddMonths(1).AddDays(-1);
+                }
+				else
+				{
+					startDate = DateTime.Today;
+
+                    endDate = startDate.AddDays(1);
+                }
 
 				//var monthlyData = DbHelper.timeAggregator.Where(x => (DateTime.ParseExact(x.date, "dd/MM/yyyy", null) >= startMonthDate && DateTime.ParseExact(x.date, "dd/MM/yyyy", null) <= endMonthDate)).ToList();
 
@@ -152,22 +158,48 @@ namespace OfficeHelper
 					.Where(x =>
 					{
 						var dt = DateTime.ParseExact(x.date, "dd/MM/yyyy", null);
-						return dt >= startMonthDate && dt <= endMonthDate;
+						return dt >= startDate && dt <= endDate;
 					})
 					.ToList();
 
-				if (monthlyData != null)
+				var todayData = DbHelper.timeTracker
+					.AsEnumerable()
+					.Where(x =>
+					{
+                        var dt = DateTime.ParseExact(x.date, "dd/MM/yyyy", null);
+                        return dt >= startDate && dt <= endDate;
+                    })
+					.ToList();
+
+				if (monthlyData != null || todayData != null)
 				{
-					return CalculateAllAggregatedHours(monthlyData);
-				}
+					if (aggregateType == AggregateType.Month)
+						return CalculateAllAggregatedHours(monthlyData);
+					else
+					{
+						var checkWorkStart = todayData.Where(x => x.eventId == (int)Events.WorkStart).ToList();
+
+                        var checkWorkEnd = todayData.Where(x => x.eventId == (int)Events.WorkEnd).ToList();
+
+						if(checkWorkEnd.Count != checkWorkStart.Count)	todayData.Add(TimeTracker.Transform("WorkEnd" ,(int)Events.WorkEnd));
+
+                        var officeHours = CalculatedWorkHours(todayData, Events.WorkStart, Events.WorkEnd);
+
+                        var breakHours = CalculatedWorkHours(todayData, Events.BreakStart, Events.BreakEnd);
+
+                        var workHours = officeHours - breakHours;
+
+                        var compensationHours = NegativeTimeSpamHandler(workHours - TimeSpan.Parse("09:00"));
+
+                        return CalculateAllAggregatedHours(new List<TimeAggregator>() { TimeAggregator.Transform(DateTime.Now.ToString("dd/MM/yyyy"), workHours, breakHours, officeHours, compensationHours) });
+					}
+                }
 				return "No Data in Aggregated Record to show result";
 
 			}
 			catch(Exception e)
 			{
-                CustomPopup.ShowResult($"Exception Occured at FetchAggregatedData : {e.Message}");
-				return null;
-
+                return $"Exception Occured at FetchAggregatedData : {e.Message}";
             }
         }
 
@@ -196,8 +228,8 @@ namespace OfficeHelper
 			}
 			catch (Exception e)
 			{
-                CustomPopup.ShowResult($"Exception Occured at CalculateAllAggregatedHours : {e.Message}");
-				return null;
+                return ($"Exception Occured at CalculateAllAggregatedHours : {e.Message}");
+			
             }
         }
 
@@ -210,7 +242,7 @@ namespace OfficeHelper
 			}
 			catch (Exception e) 
 			{
-                CustomPopup.ShowResult($"Exception Occured at ClearDb : {e.Message}");
+                //CustomPopup.ShowResult($"Exception Occured at ClearDb : {e.Message}");
             }
         }
 
@@ -225,7 +257,7 @@ namespace OfficeHelper
 			}
 			catch (Exception e)
 			{
-                CustomPopup.ShowResult($"Exception Occured at NegativeTimeHandler : {e.Message}");
+                CustomPopup.ShowError($"Exception Occured at NegativeTimeHandler : {e.Message}");
 				return null;
             }
         }

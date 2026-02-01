@@ -13,7 +13,7 @@ namespace OfficeHelper
         private static readonly DbHelper dbHelper = new DbHelper();
         private static readonly CustomPopup popup = new CustomPopup();
 
-        private static List<string> eventList = new List<string>() { "Work Start", "Work End", "Break Start", "Break End" };
+        private static List<string> eventList = new List<string>() { "Work Start", "Work End", "Break Start", "Break End" , "Half Day End" };
         public static void Initialize()
         {
             // Register hotkeys (all use NHotkey.ModifierKeys)
@@ -33,7 +33,7 @@ namespace OfficeHelper
 
         private static void CtrlAltW_Pressed(object sender, HotkeyEventArgs e) // work start
         { 
-            if (popup.ShowDialog() == DialogResult.OK && (popup.SelectedOption >= 0 && popup.SelectedOption <= 3))
+            if (popup.ShowDialog() == DialogResult.OK && (popup.SelectedOption >= 0 && popup.SelectedOption <= 4))
             {
                 EventHandler.PushEventData(eventList[popup.SelectedOption], (Events)Enum.ToObject(typeof(Events), popup.SelectedOption));
             }
