@@ -12,7 +12,7 @@ namespace OfficeHelper
 	public class EventHandler
 	{
 
-		public static DbHelper DbHelper = new DbHelper();
+		private static DbHelper DbHelper = new DbHelper();
 
         public static bool CreateDB()
         {
@@ -37,7 +37,7 @@ namespace OfficeHelper
 
 		}
 
-		public static int GetMaxSessionId(List<TimeTracker> timeTrackers) // overrided 2
+		private static int GetMaxSessionId(List<TimeTracker> timeTrackers) // overrided 2
 		{
 			try
 			{
@@ -50,7 +50,7 @@ namespace OfficeHelper
 			}	
 		}
 
-		public static void PushAggregatedData(string todayDate)
+		private static void PushAggregatedData(string todayDate)
 		{
 			try
 			{
@@ -86,7 +86,7 @@ namespace OfficeHelper
 
         }
 
-		public static TimeSpan CalculatedWorkHours(List<TimeTracker> timeTracker, Events sEvent, Events eEvent)
+		private static TimeSpan CalculatedWorkHours(List<TimeTracker> timeTracker, Events sEvent, Events eEvent)
 		{
 			try
 			{
@@ -185,7 +185,7 @@ namespace OfficeHelper
 					officeHours += TimeSpan.ParseExact(dailyData.officeHours, @"hh\:mm", null);
 					workHours += TimeSpan.ParseExact(dailyData.workHours, @"hh\:mm", null); 
 					breakHours += TimeSpan.ParseExact(dailyData.breakHours, @"hh\:mm", null);
-					compensationHours += TimeSpan.Parse(dailyData.compensationHours); // Possiblity of having negative values
+					compensationHours += TimeSpan.Parse(PositiveTimeSpanHandler(dailyData.compensationHours)); // Possiblity of having negative values
 				}
 				return $"Total Days Available : {monthlyData.Count}" +
 					$"\nTotal Office Hours : {officeHours}" +
@@ -214,7 +214,7 @@ namespace OfficeHelper
             }
         }
 
-        public static string NegativeTimeSpamHandler(TimeSpan ts)
+        private static string NegativeTimeSpamHandler(TimeSpan ts)
         {
 			try
 			{
@@ -229,6 +229,12 @@ namespace OfficeHelper
 				return null;
             }
         }
+
+		private static string PositiveTimeSpanHandler(string timespan)
+		{
+			timespan = timespan.Contains("+") ? timespan.Replace("+", "") : timespan;
+			return timespan;
+		}
 
     }
 }

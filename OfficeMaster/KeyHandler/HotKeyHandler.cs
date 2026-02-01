@@ -42,7 +42,7 @@ namespace OfficeHelper
 
         private static void CtrlShiftW_Pressed(object sender, HotkeyEventArgs e)
         {
-            EventHandler.ClearDB();
+            //EventHandler.ClearDB(); only for dev use
             e.Handled = true;
         }
     }
