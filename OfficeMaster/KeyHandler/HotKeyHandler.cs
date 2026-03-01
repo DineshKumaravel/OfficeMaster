@@ -11,7 +11,7 @@ namespace OfficeHelper
     {
 
         private static readonly DbHelper dbHelper = new DbHelper();
-        private static readonly CustomPopup popup = new CustomPopup();
+        private static readonly MainPopup popup = new MainPopup();
 
         private static List<string> eventList = new List<string>() { "Work Start", "Work End", "Break Start", "Break End" , "Half Day End" };
         public static void Initialize()

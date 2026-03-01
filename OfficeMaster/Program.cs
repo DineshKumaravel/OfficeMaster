@@ -1,6 +1,8 @@
 ﻿using NHotkey;
 using NHotkey.WindowsForms;
 using System;
+using System.IO;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace OfficeHelper
@@ -21,9 +23,16 @@ namespace OfficeHelper
 
             HotKeyHandler.Initialize();
 
-            EventHandler.CreateDB();
+            DotNetEnv.Env.Load(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Environment.env"));
 
-            Application.Run();
+            if (!EventHandler.CreateDB()) { Application.Exit(); }
+
+            var status = EventHandler.CreateCloudRecords();
+
+            if (status)
+                Application.Run();
+            else
+                Application.Exit();
         }
     }
 }

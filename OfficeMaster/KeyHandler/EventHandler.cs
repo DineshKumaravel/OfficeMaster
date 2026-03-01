@@ -1,7 +1,10 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using OfficeHealper;
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
+using System.Windows.Forms;
 using static OfficeHelper.TimeAggregator;
 
 namespace OfficeHelper
@@ -13,11 +16,31 @@ namespace OfficeHelper
 
         public static bool CreateDB()
         {
-			bool dbStatus = DbHelper.Database.EnsureCreated();
-			return dbStatus;
+			try
+			{
+				bool dbStatus = DbHelper.Database.EnsureCreated();
+				return dbStatus;
+			}
+            catch (Exception ex) { ErrorHandler.RecordError(ex.Message + "error at createdb"); return false; }
         }
 
-        public static int GetMaxSessionId(string todayDate, int eventId) // overrided 1
+		public static bool CreateCloudRecords()
+		{
+			try
+			{
+				if(!GoogleSpreedSheetAPI.CheckSheetExistance())
+				{
+					return GoogleSpreedSheetAPI.CreateNewSheet();
+				}
+				else
+				{
+					return true;
+				}
+			}
+            catch (Exception ex) { ErrorHandler.RecordError(ex.Message + "error at createcloudrecord"); return false; }
+        }
+
+		public static int GetMaxSessionId(string todayDate, int eventId) // overrided 1
 		{
 			try
 			{
@@ -28,8 +51,8 @@ namespace OfficeHelper
 			}
 			catch (Exception e)
 			{
-				CustomPopup.ShowError($"Exception Occured at GetMaxSessionId1 : {e.Message}");
-				return -1;
+			ErrorHandler.RecordError(e.Message + "error at max session id 1"); 
+            return -1;
 			}
 
 		}
@@ -42,7 +65,7 @@ namespace OfficeHelper
 			}
 			catch (Exception e)
 			{
-                CustomPopup.ShowError($"Exception Occured at GetMaxSessionId2 : {e.Message}");
+                ErrorHandler.RecordError(e.Message + "error at max session id 2");
                 return -1; 
 			}	
 		}
@@ -63,9 +86,11 @@ namespace OfficeHelper
 
 				var oldAggregatorData = DbHelper.timeAggregator.FirstOrDefault(x => x.date == todayDate);
 
+				var timeAggregate = TimeAggregator.Transform(todayDate, workHours, breakHours, officeHours, compensationHours);
+				
 				if (oldAggregatorData == null)
 				{
-					DbHelper.Add(TimeAggregator.Transform(todayDate, workHours, breakHours, officeHours, compensationHours));
+                    DbHelper.Add(timeAggregate);
 				}
 				else
 				{
@@ -73,12 +98,15 @@ namespace OfficeHelper
 					oldAggregatorData.breakHours = breakHours.ToString("hh\\:mm");
 					oldAggregatorData.workHours = workHours.ToString("hh\\:mm");
 					oldAggregatorData.compensationHours = compensationHours;
+
 				}
+				GoogleSpreedSheetAPI.WriteToExcel<TimeAggregator>(new List<TimeAggregator>() { timeAggregate });
+				DbHelper.SaveChanges();
 
 			}
 			catch (Exception e)
             {
-                CustomPopup.ShowError($"Exception Occured at PushAggregatedData : {e.Message}");
+                ErrorHandler.RecordError(e.Message + "error at push aggregated data");
             }
 
         }
@@ -106,8 +134,8 @@ namespace OfficeHelper
 			}
 			catch(Exception e) 
 			{
-                CustomPopup.ShowError($"Exception Occured at CalculatedWorkHours : {e.Message}");
-				return TimeSpan.MaxValue;
+                ErrorHandler.RecordError(e.Message + "error at calculated work hours");
+                return TimeSpan.MaxValue;
             }
 
         }
@@ -116,24 +144,62 @@ namespace OfficeHelper
 		{
 			try
 			{
-				DbHelper.Add(TimeTracker.Transform(eve, (int)type));
+				var timeTracker = TimeTracker.Transform(eve, (int)type);
+				DbHelper.Add(timeTracker);
+				GoogleSpreedSheetAPI.WriteToExcel<TimeTracker>(new List<TimeTracker>() { timeTracker});
 				DbHelper.SaveChanges();
 				if (type == Events.WorkEnd || type == Events.HalfDayEnd)
 				{
 					PushAggregatedData(DateTime.Now.ToString("dd/MM/yyyy") , type);
-                    DbHelper.SaveChanges();
                 }
-				return true;
+
+				if (!CacheManager.IsCacheEmpty<TimeTracker>()) { TryPushCacheData<TimeTracker>(); }
+
+                if (!CacheManager.IsCacheEmpty<TimeAggregator>()) { TryPushCacheData<TimeAggregator>(); }
+
+                return true;
 			}
 			catch (Exception e) 
 			{
-                CustomPopup.ShowError($"Exception Occured at PushEventData : {e.Message}");
-				return false;
+                ErrorHandler.RecordError(e.Message + "error at push event data");
+                return false;
 
             }
         }
+		//private static void CheckAndSendEmail()
+		//{
+		//	if(DbHelper.timeAggregator.ToList().Count % 30 == 0)
+		//	{
+		//		var last30dayrecord = DbHelper.timeAggregator
+		//			.OrderByDescending(x => x.id)
+		//			.Take(30)
+		//			.OrderBy(x => x.id)
+		//			.ToList();
 
-		public static string FetchAggregatedData(AggregateType aggregateType)
+		//		NotificationAPI.SendReportMail(Environment.UserName , "officemasterchartreport", "MonthlyCompensateData.png" , ChartMaker.CreateChart(last30dayrecord));
+
+		//	}
+		//}
+		private static void TryPushCacheData<T>()
+		{
+			try
+			{
+				bool status;
+				if (typeof(T) == typeof(TimeTracker))
+					status = GoogleSpreedSheetAPI.WriteToExcel<TimeTracker>(CacheManager.GetObject<TimeTracker>(), true);
+				else
+					status = GoogleSpreedSheetAPI.WriteToExcel<TimeAggregator>(CacheManager.GetObject<TimeAggregator>() , true);
+
+				if (status)
+					CacheManager.ClearCache<T>();
+			}
+			catch(Exception e)
+			{
+                ErrorHandler.RecordError(e.Message + "error at trypushcachedata");
+            }
+        }
+
+		public static TimeAggregatorReport FetchAggregatedData(AggregateType aggregateType)
 		{
 			try
 			{
@@ -194,16 +260,19 @@ namespace OfficeHelper
                         return CalculateAllAggregatedHours(new List<TimeAggregator>() { TimeAggregator.Transform(DateTime.Now.ToString("dd/MM/yyyy"), workHours, breakHours, officeHours, compensationHours) });
 					}
                 }
-				return "No Data in Aggregated Record to show result";
+				//return "No Data in Aggregated Record to show result";
+				return null;
 
 			}
 			catch(Exception e)
 			{
-                return $"Exception Occured at FetchAggregatedData : {e.Message}";
+                //return $"Exception Occured at FetchAggregatedData : {e.Message}";
+                ErrorHandler.RecordError(e.Message + "error at fetch aggregated data");
+                return null;
             }
         }
 
-		public static string CalculateAllAggregatedHours(List<TimeAggregator> monthlyData)
+		public static TimeAggregatorReport CalculateAllAggregatedHours(List<TimeAggregator> monthlyData)
 		{
 			try
 			{
@@ -219,17 +288,26 @@ namespace OfficeHelper
 					breakHours += TimeSpan.ParseExact(dailyData.breakHours, @"hh\:mm", null);
 					compensationHours += TimeSpan.Parse(PositiveTimeSpanHandler(dailyData.compensationHours)); // Possiblity of having negative values
 				}
-				return $"Total Days Available : {monthlyData.Count}" +
-					$"\nTotal Office Hours : {TimeSpanOutputFormatter(officeHours)}" +
-					$"\nTotal Work Hours : {TimeSpanOutputFormatter(workHours)}" +
-					$"\nTotal Break Hours : {TimeSpanOutputFormatter(breakHours)}" +
-					$"\nCompensate Hours : {TimeSpanOutputFormatter(compensationHours)}";
+				return new TimeAggregatorReport()
+				{
+					totalDays = monthlyData.Count,
+					officeHours = TimeSpanOutputFormatter(officeHours),
+					breakHours = TimeSpanOutputFormatter(breakHours),
+					compensateHours = TimeSpanOutputFormatter(compensationHours),
+					workHours = TimeSpanOutputFormatter(workHours),
+				};
+				//return $"Total Days Available : {monthlyData.Count}" +
+				//	$"\nTotal Office Hours : {TimeSpanOutputFormatter(officeHours)}" +
+				//	$"\nTotal Work Hours : {TimeSpanOutputFormatter(workHours)}" +
+				//	$"\nTotal Break Hours : {TimeSpanOutputFormatter(breakHours)}" +
+				//	$"\nCompensate Hours : {TimeSpanOutputFormatter(compensationHours)}";
 
 			}
 			catch (Exception e)
 			{
-                return ($"Exception Occured at CalculateAllAggregatedHours : {e.Message}");
-			
+                //return ($"Exception Occured at CalculateAllAggregatedHours : {e.Message}");
+                ErrorHandler.RecordError(e.Message + "error at calculated hours");
+                return new TimeAggregatorReport();
             }
         }
 
@@ -246,6 +324,25 @@ namespace OfficeHelper
             }
         }
 
+		public static void ClearSpecificDateDbRecord()
+		{
+			try
+			{
+				string targetDate = DateTime.Now.ToString("dd/MM/yyyy");
+
+
+				var records = DbHelper.timeTracker
+					.Where(o => o.date.StartsWith(targetDate))
+					.ToList();
+
+				DbHelper.timeTracker.RemoveRange(records);
+				DbHelper.SaveChanges();
+
+			}
+			catch (Exception e) { ErrorHandler.RecordError(e.Message + "error at db clear"); }
+
+        }
+
         private static string NegativeTimeSpamHandler(TimeSpan ts)
         {
 			try
@@ -257,7 +354,6 @@ namespace OfficeHelper
 			}
 			catch (Exception e)
 			{
-                CustomPopup.ShowError($"Exception Occured at NegativeTimeHandler : {e.Message}");
 				return null;
             }
         }
@@ -265,11 +361,102 @@ namespace OfficeHelper
 		{
 			return $"{ts.Days} D : {ts.Hours} H : {ts.Minutes} M";
 		}
-		private static string PositiveTimeSpanHandler(string timespan)
+		public static string PositiveTimeSpanHandler(string timespan)
 		{
 			timespan = timespan.Contains("+") ? timespan.Replace("+", "") : timespan;
 			return timespan;
 		}
+
+		public static void InitializeButtonProperty(Button workButton = null, Button breakButton = null)
+		{
+			try
+			{
+				throw new Exception();
+				var startDate = DateTime.Today;
+
+				var endDate = startDate.AddDays(1);
+
+				var todayData = DbHelper.timeTracker
+					.AsEnumerable()
+					.Where(x =>
+					{
+						var dt = DateTime.ParseExact(x.date, "dd/MM/yyyy", null);
+						return dt >= startDate && dt <= endDate;
+					})
+					.ToList();
+
+				if (!todayData.Any())
+				{
+					ButtonStartProp(workButton, breakButton);
+					return;
+				} 
+				if (workButton != null)
+				{
+
+					var WorkStart = todayData.Where(x => x.eventId == (int)Events.WorkStart);
+
+					if (!WorkStart.Any()) { ButtonStartProp(workButton, null); return; }
+
+					var maxWorkStartSession = WorkStart.Max(x => x.sessionId);
+					//if(maxWorkStartSession == null) { ButtonStartProp(workButton, null); return; }
+
+					var maxWorkEndSession = todayData.Where(x => x.eventId == (int)Events.WorkEnd && x.sessionId == maxWorkStartSession).FirstOrDefault();
+
+					if (maxWorkEndSession == null) //no work end exist for the workstart
+					{
+						workButton.Text = "Work End";
+						workButton.BackColor = Color.FromArgb(255, 102, 102);
+                    }
+					else
+					{
+						workButton.Text = "Work Start";
+						workButton.BackColor = Color.LightGreen;
+					}
+				}
+				if (breakButton != null)
+				{
+					var BreakStart = todayData.Where(x => x.eventId == (int)Events.BreakStart);
+
+					if(!BreakStart.Any()) { ButtonStartProp(null , breakButton); return; }	
+
+					var maxBreakStartSession = BreakStart.Max(x => x.sessionId);
+					//if (maxBreakStartSession == null) { ButtonStartProp(null, breakButton); return; }
+
+					var maxBreakEndSession = todayData.Where(x => x.eventId == (int)Events.BreakEnd && x.sessionId == maxBreakStartSession).FirstOrDefault();
+
+					if (maxBreakEndSession == null)
+					{
+						breakButton.Text = "Break End";
+						breakButton.BackColor = Color.FromArgb(255, 102, 102);
+                    }
+					else
+					{
+						breakButton.Text = "Break Start";
+						breakButton.BackColor = Color.LightGreen;
+					}
+
+				}
+			}
+			catch (Exception ex) { ErrorHandler.RecordError(ex.Message + "error at initialize button prop" + "stacktrace =>" + ex.StackTrace); }
+
+
+        }
+		private static void ButtonStartProp(Button workButton = null,Button breakButton= null)
+		{
+			if(workButton != null)
+			{
+				workButton.Text = "Work Start";
+				workButton.BackColor = Color.LightGreen;
+			}
+			if (breakButton != null)
+			{
+				breakButton.Text = "Break Start";
+				breakButton.BackColor = Color.LightGreen;
+
+			}
+
+        }
+
 
     }
 }

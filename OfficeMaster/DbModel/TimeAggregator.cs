@@ -23,6 +23,12 @@ namespace OfficeHelper
 			Day
 		}
 
+		//public enum OutputType
+		//{
+		//	Table,
+		//	Chart
+		//}
+
 		[Key]             
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public virtual int id { get; set; }
